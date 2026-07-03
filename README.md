@@ -35,6 +35,8 @@ XUEQIU_TOKEN=您的雪球token
 ```bash
 echo 'XUEQIU_TOKEN="xq_a_token=xxxxx;u=xxxx"' > .env
 ```
+现在 雪球更新了验证方法，把cookia里面的内容都复制进去可以通过。
+例如：`XUEQIU_TOKEN="xq_a_token=<你的a_token>; xq_r_token=<你的r_token>; xq_is_login=1; u=<你的uid>;"`
 
 关于如何获取雪球token，请参考[pysnowball文档](https://github.com/uname-yang/pysnowball/blob/master/how_to_get_token.md)。
 

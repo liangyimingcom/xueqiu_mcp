@@ -11,18 +11,29 @@ ball.set_token(os.getenv("XUEQIU_TOKEN"))
 mcp = FastMCP(name="Xueqiu MCP")
 
 
+# 毫秒/秒判别阈值：
+#   真实秒级时间戳约 1e9（10 位数），真实毫秒级约 1e12~1e13（13 位数）。
+#   用 1e11 做分界：>=1e11 一律按毫秒处理（÷1000），否则按秒处理。
+#   这样可正确处理 2001 年之前的毫秒时间戳（如 issue_date=998841600000，
+#   其值 < 1e12 但确为毫秒，旧逻辑会误判为秒级导致 year out of range 崩溃）。
+_MS_THRESHOLD = 100000000000  # 1e11
+
+
+def _ts_to_str(value):
+    """把秒/毫秒时间戳安全转换为日期字符串，失败返回原值。"""
+    try:
+        seconds = value / 1000 if value >= _MS_THRESHOLD else value
+        return datetime.datetime.fromtimestamp(seconds).strftime('%Y-%m-%d %H:%M:%S')
+    except (ValueError, OverflowError, OSError):
+        return value
+
+
 def convert_timestamps(data):
     """递归地将数据中的所有 timestamp 转换为 datetime 字符串"""
     if isinstance(data, dict):
         for key, value in list(data.items()):
-            if key == 'timestamp' and isinstance(value, (int, float)) and value > 1000000000000:  # 毫秒级时间戳
-                data[key] = datetime.datetime.fromtimestamp(value/1000).strftime('%Y-%m-%d %H:%M:%S')
-            elif key == 'timestamp' and isinstance(value, (int, float)) and value > 1000000000:  # 秒级时间戳
-                data[key] = datetime.datetime.fromtimestamp(value).strftime('%Y-%m-%d %H:%M:%S')
-            elif key.endswith('_date') and isinstance(value, (int, float)) and value > 1000000000000:  # 毫秒级时间戳
-                data[key] = datetime.datetime.fromtimestamp(value/1000).strftime('%Y-%m-%d %H:%M:%S')
-            elif key.endswith('_date') and isinstance(value, (int, float)) and value > 1000000000:  # 秒级时间戳
-                data[key] = datetime.datetime.fromtimestamp(value).strftime('%Y-%m-%d %H:%M:%S')
+            if (key == 'timestamp' or key.endswith('_date')) and isinstance(value, (int, float)) and value > 1000000000:
+                data[key] = _ts_to_str(value)
             elif isinstance(value, (dict, list)):
                 data[key] = convert_timestamps(value)
     elif isinstance(data, list):
