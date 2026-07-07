@@ -5,6 +5,6 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "fastmcp>=2.1.2",
+    "fastmcp>=2.1.2,<3",
     "pysnowball>=0.1.3",
 ]

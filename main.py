@@ -1,4 +1,5 @@
 import os
+import re
 import pysnowball as ball
 from fastmcp import FastMCP
 from dotenv import load_dotenv
@@ -6,7 +7,23 @@ import datetime
 import json
 
 load_dotenv()
-ball.set_token(os.getenv("XUEQIU_TOKEN"))
+
+
+def _load_token():
+    """读取 XUEQIU_TOKEN，并在缺少 u (uid) cookie 时补上。
+
+    雪球的 kline.json 接口要求 cookie 中必须存在 `u` 字段，否则会静默返回
+    空的 {"items": [], "items_size": 0}（HTTP 200、error_code 0），而其它接口
+    （quotec/quote_detail/capital 等）没有这个限制。u 的取值不做校验，任意值
+    （如 u=1）即可通过，因此当用户未提供时补一个占位值。
+    """
+    raw = os.getenv("XUEQIU_TOKEN") or ""
+    if not re.search(r"(^|;|\s)u=", raw):
+        raw = raw.rstrip().rstrip(";") + "; u=1;"
+    return raw
+
+
+ball.set_token(_load_token())
 
 mcp = FastMCP(name="Xueqiu MCP")
 
@@ -99,7 +116,11 @@ def pankou(stock_code: str="HK00700") -> dict:
 def kline(stock_code: str="HK00700", days: int = 100) -> dict:
     """获取K线数据。第二参数可制定从现在到N天前，默认100"""
     try:
-        result = ball.kline(stock_code, days)
+        # pysnowball 的签名是 kline(symbol, period='day', count=284)。
+        # 原代码 ball.kline(stock_code, days) 会把 days 传给 period，
+        # 导致 period 变成数字（无效），接口返回空 items。这里显式按
+        # 关键字传参：period 固定为 'day'，count 使用 days。
+        result = ball.kline(stock_code, period="day", count=days)
         return process_data(result)
     except Exception as e:
         return {"error": str(e), "stock_code": stock_code}
@@ -465,7 +486,10 @@ def northbound_shareholding_sh(date: str = None) -> dict:
     """
     try:
         result = ball.northbound_shareholding_sh(date)
-        return process_data(result)
+        # 该接口返回的是一个 list，而 fastmcp 要求工具返回 dict/None，
+        # 直接返回 list 会报 "structured_content must be a dict or None"。
+        # 用 {"data": ...} 包一层。
+        return {"data": process_data(result)}
     except Exception as e:
         return {"error": str(e), "date": date}
 
@@ -479,7 +503,8 @@ def northbound_shareholding_sz(date: str = None) -> dict:
     """
     try:
         result = ball.northbound_shareholding_sz(date)
-        return process_data(result)
+        # 同 northbound_shareholding_sh：接口返回 list，需包成 dict。
+        return {"data": process_data(result)}
     except Exception as e:
         return {"error": str(e), "date": date}
 
