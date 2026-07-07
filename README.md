@@ -76,6 +76,15 @@ uv --directory /path/to/xueqiu_mcp run main.py
 
 ![image](./images/claude_mcp.png)
 
+## Fixes in this fork（本 fork 的修复）
+
+本 fork 修复了三个运行时 bug，并锁定了 `fastmcp` 版本。详细的问题分析、代码前后对比和验证方式见 [PR_DESCRIPTION.md](./PR_DESCRIPTION.md)。
+
+1. **kline 返回空数据（参数传错）**：`ball.kline(stock_code, days)` 把 `days` 传进了 `period` 参数；改为 `ball.kline(stock_code, period="day", count=days)`。
+2. **kline 返回空数据（缺少 `u` cookie）**：雪球 `kline.json` 接口要求 cookie 中必须有 `u`（uid）字段，否则静默返回空结果。token 加载器在缺失时自动补 `u=1`（已有真实 `u=` 的 token 不受影响，向后兼容）。
+3. **northbound_shareholding_sh/sz 报错**：接口返回 `list`，而 fastmcp 要求返回 `dict`，报 `structured_content must be a dict or None`；改为用 `{"data": ...}` 包一层。
+4. **锁定 `fastmcp>=2.1.2,<3`**：3.x 把 `FastMCP` 移出了顶层命名空间，会导致 `from fastmcp import FastMCP` 失败。
+
 ## 致谢
 
 - [pysnowball](https://github.com/uname-yang/pysnowball) - 雪球股票数据接口的Python版本
